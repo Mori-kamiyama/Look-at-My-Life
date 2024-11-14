@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Look at My Life</title>
+    <link rel="stylesheet" type="text/css" href="styles.css" />
+    <!-- フォントのリンク -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- その他のフォント -->
+    <link href="https://fonts.googleapis.com/css2?family=Hind:wght@500&family=Inria+Sans&family=Zen+Kaku+Gothic+New:wght@500&display=swap" rel="stylesheet">
+
+    <!-- Chart.js の読み込み -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="title">
+        <p class="zen-kaku-gothic-new-medium">生涯収支視覚化アプリ</p>
+        <h1 class="hind-medium">Look at My Life</h1>
+    </div>
+
+    <div class="cost">
+        <h2 class="zen-kaku-gothic-new-medium">Morimoriの収支</h2>
+        <h1 id="currentValueDisplay" class="inria-sans-regular"></h1><p class="zen-kaku-gothic-new-medium">円</p>
+    </div>
+
+    <!-- ポップアップの追加 -->
+    <div id="popup" class="popup" onclick="closePopup(event)">
+        <div class="popup-content">
+            <span class="close" onclick="closePopup(event)">&times;</span>
+            <p>獲得金額</p>
+            <input type="number" id="income" placeholder="0">
+            <p>消費金額</p>
+            <input type="number" id="expense" placeholder="0">
+            <button onclick="submitData()">Submit</button>
+        </div>
+    </div>
+
+    <!-- Add New ボタンと Export Data ボタン -->
+    <div class="button-container">
+        <div class="button-left" onclick="openPopup()">
+            <div class="left"></div>
+            <div class="main hind-medium"><p>Add New</p></div>
+            <div class="right"></div>
+        </div>
+        <div class="button-right">
+            <div class="left"></div>
+            <div class="arrow-container">
+                <span class="arrow ">&rarr;</span>
+            </div>
+            <div class="right"></div>
+        </div>
+    </div>
+
+    <!-- Export Data ボタン -->
+    <div class="export-button-container">
+        <button onclick="exportDataAsJSON()">
+            <img src="download.png">
+        </button>
+    </div>
+
+    <p class="zen-kaku-gothic-new-medium">使い方 https://github.　　　create by toromino</p>
+
+    <!-- キャンバス -->
+    <canvas id="coin"></canvas>
+    <div class="chart-container">
+        <canvas id="myChart"></canvas>
+    </div>
+<!-- スクリプト -->
+<script>
+    // コインのキャンバスを取得
+    const canvas = document.getElementById("coin");
+    const ctxCoin = canvas.getContext("2d");
+
+    // キャンバスのサイズを設定
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    window.addEventListener('resize', function() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    });
+
+    // Chart.js のコンテキストを取得
+    const ctxChart = document.getElementById('myChart').getContext('2d');
+
+    // パーティクル関連の変数
+    const particles = [];
+    const particleSize = 100;
+    const particleAmount = 5;
+
+    const firstV = 15;
+    const PI = 3.14;
+    const G = 9.8;
+
+    // コインの画像を読み込む
+    const coinImage = new Image();
+    coinImage.src = 'coin.svg';
+
+    // パーティクルを生成する関数
+    function createParticles(x, y) {
+        for (let i = 0; i < particleAmount; i++) {
+            let theta = Math.random() * PI + PI;
+
+            particles.push({
+                x: Math.random() * 50 + x,
+                y: Math.random() * 50 + y,
+                speedX: Math.cos(theta) * firstV / 2,
+                speedY: Math.sin(theta) * firstV,
+                size: particleSize,
+                life: 100,
+                rotation: 0,
+                rotationSpeed: Math.random() * 0.2 + 0.1,
+            });
+        }
+    }
+
+    // パーティクルを描画する関数
+    function drawParticles() {
+        ctxCoin.clearRect(0, 0, canvas.width, canvas.height);
+
+        particles.forEach((particle, index) => {
+            if (coinImage.complete) {
+                ctxCoin.save();
+
+                // パーティクルの位置に移動
+                ctxCoin.translate(particle.x, particle.y);
+
+                // 回転角度の更新
+                particle.rotation += particle.rotationSpeed;
+
+                // 回転を適用
+                ctxCoin.rotate(particle.rotation);
+
+                // コイン画像を描画
+                ctxCoin.drawImage(
+                    coinImage,
+                    -particle.size / 2,
+                    -particle.size / 2,
+                    particle.size,
+                    particle.size
+                );
+
+                ctxCoin.restore();
+            }
+
+            // 重力の適用
+            particle.speedY += (G / 15);
+            particle.x += particle.speedX;
+            particle.y += particle.speedY;
+
+            // 画面外のパーティクルを削除
+            if (particle.y >= canvas.height || particle.x <= -particleSize || particle.x >= canvas.width + particleSize) {
+                particles.splice(index, 1);
+            }
+        });
+    }
+
+    // アニメーションループ
+    function animate() {
+        drawParticles();
+        requestAnimationFrame(animate);
+    }
+
+    let animationStarted = false;
+    let isnewClicked = false;
+
+    document.body.addEventListener("click", function(event) {
+        if (!isnewClicked) {
+            var x = event.pageX;
+            var y = event.pageY;
+
+            // パーティクルを追加
+            createParticles(x, y);
+
+            // アニメーションを一度だけ開始
+            if (!animationStarted) {
+                if (coinImage.complete) {
+                    animate();
+                } else {
+                    coinImage.onload = function() {
+                        animate();
+                    };
+                }
+                animationStarted = true;
+            }
+
+            console.log("Particles:", particles);
+        }
+    });
+
+    // localStorageからデータを取得し、initialData に割り当てる関数
+    function getChartDataFromLocalStorage() {
+        var jsonData = localStorage.getItem('chartData');
+        if (jsonData) {
+            var dataArray = JSON.parse(jsonData);
+            var labels = [];
+            var data = [];
+            dataArray.forEach(function(item) {
+                labels.push(item[0]); // 日付
+                data.push(item[1]);   // 値
+            });
+            return {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    borderColor: '#94C3FF',
+                    backgroundColor: '#E5F9FF',
+                    fill: true,
+                    tension: 0.4
+                }]
+            };
+        }
+        return null;
+    }
+
+    // チャートの初期データ（localStorageから取得できない場合は自由に設定）
+    var initialData = getChartDataFromLocalStorage();
+
+    if (!initialData) {
+        // 初期データポイントの配列を作成
+        //自分で使用する際はここを変更してください
+        var initialDataPoints = [
+            ['2023/10/1', 0],
+            ['2023/10/2', 0],
+            ['2023/10/3', 0]
+        ];
+        var labels = [];
+        var data = [];
+        initialDataPoints.forEach(function(item) {
+            labels.push(item[0]);
+            data.push(item[1]);
+        });
+        initialData = {
+            labels: labels,
+            datasets: [{
+                data: data,
+                borderColor: '#94C3FF',
+                backgroundColor: '#E5F9FF',
+                fill: true,
+                tension: 0.4
+            }]
+        };
+        // 初期データをlocalStorageに保存
+        saveChartDataToLocalStorage(initialDataPoints);
+    }
+
+    // チャートを作成
+    const myChart = new Chart(ctxChart, {
+        type: 'line',
+        data: initialData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    enabled: false
+                }
+            },
+            scales: {
+                x: {
+                    display: false
+                },
+                y: {
+                    display: false,
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+
+    // 現在の値を表示する関数
+    function updateCurrentValueDisplay() {
+        var currentValue = myChart.data.datasets[0].data.length > 0
+            ? myChart.data.datasets[0].data[myChart.data.datasets[0].data.length - 1]
+            : 0;
+
+        document.getElementById('currentValueDisplay').innerText = currentValue;
+    }
+
+    // ポップアップを開く関数
+    function openPopup() {
+        document.getElementById("popup").style.display = "flex";
+        isnewClicked = true;
+    }
+
+    // ポップアップを閉じる関数
+    function closePopup(event) {
+        if (event.target.classList.contains("popup") || event.target.classList.contains("close")) {
+            document.getElementById("popup").style.display = "none";
+            isnewClicked = false;
+        }
+    }
+
+    // 背景をクリックしてポップアップを閉じる
+    window.onclick = function(event) {
+        if (event.target == document.getElementById("popup")) {
+            document.getElementById("popup").style.display = "none";
+            isnewClicked = false;
+        }
+    };
+
+    // データを送信する関数
+    function submitData() {
+        // 入力フィールドから値を取得
+        var income = parseFloat(document.getElementById('income').value) || 0;
+        var expense = parseFloat(document.getElementById('expense').value) || 0;
+        var netChange = income - expense;
+
+        // 現在の最後のデータ値を取得し、新しい値を計算
+        var currentValue = myChart.data.datasets[0].data.length > 0
+            ? myChart.data.datasets[0].data[myChart.data.datasets[0].data.length - 1]
+            : 0;
+        var newValue = currentValue + netChange;
+
+        // 今日の日付をラベルとして取得
+        var today = new Date();
+        var label = today.getFullYear() + '/' + (today.getMonth() + 1) + '/' + today.getDate();
+
+        // チャートに新しいデータを追加
+        myChart.data.labels.push(label);
+        myChart.data.datasets[0].data.push(newValue);
+
+        // チャートを更新
+        myChart.update();
+
+        // 現在の値を表示
+        updateCurrentValueDisplay();
+
+        // データをlocalStorageに保存
+        saveChartData();
+
+        // ポップアップを閉じる
+        closePopup(event);
+
+        // 入力フィールドをクリア
+        document.getElementById('income').value = '';
+        document.getElementById('expense').value = '';
+    }
+
+    // チャートデータをlocalStorageに保存する関数
+    function saveChartData() {
+        var dataArray = [];
+        for (var i = 0; i < myChart.data.labels.length; i++) {
+            dataArray.push([myChart.data.labels[i], myChart.data.datasets[0].data[i]]);
+        }
+        localStorage.setItem('chartData', JSON.stringify(dataArray));
+    }
+
+    // 初期データをlocalStorageに保存する関数
+    function saveChartDataToLocalStorage(dataArray) {
+        localStorage.setItem('chartData', JSON.stringify(dataArray));
+    }
+
+
+    // データをJSONとしてエクスポートする関数
+    function exportDataAsJSON() {
+        var dataArray = [];
+        for (var i = 0; i < myChart.data.labels.length; i++) {
+            dataArray.push([myChart.data.labels[i], myChart.data.datasets[0].data[i]]);
+        }
+        var jsonData = JSON.stringify(dataArray, null, 2);
+        var blob = new Blob([jsonData], {type: "application/json"});
+        var url = URL.createObjectURL(blob);
+
+        var link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", "chart_data.json");
+        document.body.appendChild(link); // Required for FF
+
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+
+    // ページ読み込み時に現在の値を表示
+    window.onload = function() {
+        updateCurrentValueDisplay();
+    };
+</script>
+</body>
+</html>
